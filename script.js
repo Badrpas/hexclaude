@@ -1,3 +1,5 @@
+import { createHexCell } from './hexCell.js';
+
 $(document).ready(function() {
     // Grid configuration
     var gridConfig = [
@@ -27,27 +29,6 @@ $(document).ready(function() {
 
             $grid.append($rowElement);
         }
-    }
-
-    // Create a single hexagon cell
-    function createHexCell(rowIndex, cellIndex, isVisible) {
-        var $hexagon = $('<div>')
-            .addClass('hexagon')
-            .attr('data-key', rowIndex + '-' + cellIndex);
-        
-        if (!isVisible) {
-            $hexagon.css('opacity', '0');
-            $hexagon.css('pointer-events', 'none');
-        }
-
-        var $hexagonInner = $('<div>').addClass('hexagon-inner');
-        $hexagon.append($hexagonInner);
-
-        $hexagon.on('click', function() {
-            $(this).toggleClass('active');
-        });
-
-        return $hexagon;
     }
 
     // Initialize the grid
