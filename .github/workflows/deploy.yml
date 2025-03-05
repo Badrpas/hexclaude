@@ -20,8 +20,4 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           personal_token: ${{ secrets.GITHUB_TOKEN }}
-          external_repository: Badrpas/badrpas.github.io
           publish_dir: ./build
-          publish_branch: master
-          destination_dir: hexclaude
-          keep_files: true
