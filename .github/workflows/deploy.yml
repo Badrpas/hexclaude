@@ -1,0 +1,27 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Build
+        run: mkdir build && cp src/* build/
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.PERSONAL_TOKEN }}
+          external_repository: Badrpas/badrpas.github.io
+          publish_dir: ./build
+          publish_branch: master
+          destination_dir: hexclaude
+          keep_files: true
