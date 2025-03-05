@@ -1,3 +1,9 @@
+:root {
+    --hex-size: min(200px, 22vw);
+    --hex-height: calc(var(--hex-size) * 0.866);
+    --hex-margin: min(10px, 1vw);
+}
+
 body {
     display: flex;
     justify-content: center;
@@ -6,30 +12,45 @@ body {
     margin: 0;
     background-color: #202325;
     font-family: Arial, sans-serif;
+    padding: 10px;
+    box-sizing: border-box;
 }
 
 .hexagonal-grid {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 86.6px; /* Half of hexagon height */
+    padding-top: calc(var(--hex-height) / 2); /* Half of hexagon height */
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .hex-row {
     display: flex;
     align-items: center;
-    margin-bottom: -45px; /* Reduced negative margin for less overlap */
+    margin-bottom: calc(var(--hex-height) * -0.26); /* Reduced negative margin for less overlap */
 }
 
 .hex-row.odd {
-    transform: translateX(calc(213.2px / 2));
+    transform: translateX(calc(var(--hex-size) / 2 + var(--hex-margin)));
+}
+
+/* Media query for small screens */
+@media (max-width: 600px) {
+    :root {
+        --hex-size: min(120px, 28vw);
+    }
+    
+    .hexagonal-grid {
+        padding-top: calc(var(--hex-height) / 2.5);
+    }
 }
 
 .hexagon {
     position: relative;
-    width: 200px;
-    height: 173.2px;
-    margin: 10px;
+    width: var(--hex-size);
+    height: var(--hex-height);
+    margin: var(--hex-margin);
     background-color: #2a2d2f;
     cursor: pointer;
     clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
