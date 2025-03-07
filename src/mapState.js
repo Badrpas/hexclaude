@@ -221,7 +221,7 @@ export function clearHighlightedCells() {
 
 /**
  * Move a unit to a new cell
- * @param {Unit} unit - Unit to move
+ * @param {import('./unit.js').Unit} unit - Unit to move
  * @param {number} rowIndex - Target row index
  * @param {number} cellIndex - Target cell index
  * @returns {boolean} Whether the move was successful
@@ -234,11 +234,12 @@ export function moveUnit(unit, rowIndex, cellIndex) {
     
     // Simple movement cost calculation (1 per cell)
     const cost = 1;
+
+    const oldCell = getCell(unit.position.row, unit.position.col);
     
     // Update unit position using the unit's move method
     if (unit.move(rowIndex, cellIndex, cost)) {
         // Update cell references
-        const oldCell = getCell(unit.position.row, unit.position.col);
         if (oldCell) {
             oldCell.unit = null;
         }
