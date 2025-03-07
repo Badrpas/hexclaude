@@ -32,7 +32,7 @@ export function render(canvas, ctx) {
         const row = appState.cells[rowIndex];
         
         for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cell = appState.cells[rowIndex][cellIndex];
+            const cell = row[cellIndex];
             
             if (cell.isVisible) {
                 const color = cell.isActive ? appState.colors.active : appState.colors.hexagon;

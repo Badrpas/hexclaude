@@ -1,7 +1,7 @@
 /**
  * Interactions module for handling user input
  */
-import { appState } from './state.js';
+import { appState, toggleCellState, setZoom, panView } from './state.js';
 import { screenToWorld } from './renderer.js';
 import { isPointInHexagon } from './hexagon.js';
 
@@ -81,14 +81,14 @@ function handleClick(event, canvas, renderFn) {
         const row = appState.cells[rowIndex];
         
         for (let cellIndex = 0; cellIndex < row.length; cellIndex++) {
-            const cell = appState.cells[rowIndex][cellIndex];
+            const cell = row[cellIndex];
             
             if (!cell.isVisible) continue;
             
             // Check if click is within hexagon using world coordinates
             if (isPointInHexagon(worldPos.x, worldPos.y, cell.x, cell.y, appState.hexSize)) {
                 // Toggle active state
-                cell.isActive = !cell.isActive;
+                toggleCellState(rowIndex, cellIndex);
                 console.log('Cell clicked:', cell);
                 
                 // Re-render
@@ -141,8 +141,8 @@ function handleMouseMove(event, renderFn) {
     appState.view.lastX = event.clientX;
     appState.view.lastY = event.clientY;
     
-    appState.view.offsetX += deltaX / appState.view.scale;
-    appState.view.offsetY += deltaY / appState.view.scale;
+    // Use the panView helper function
+    panView(deltaX, deltaY);
     
     renderFn();
 }
@@ -174,15 +174,11 @@ function handleWheel(event, canvas, renderFn) {
     const wheel = event.deltaY < 0 ? 1 : -1;
     const zoom = Math.exp(wheel * zoomIntensity);
     
-    // Calculate new scale with limits
+    // Calculate new scale and use setZoom helper function
     const newScale = appState.view.scale * zoom;
-    if (newScale < appState.view.minScale || newScale > appState.view.maxScale) {
-        return;
+    if (setZoom(newScale)) {
+        renderFn();
     }
-    
-    appState.view.scale = newScale;
-    
-    renderFn();
 }
 
 /**
@@ -264,8 +260,8 @@ function handleTouchMove(event, canvas, renderFn) {
         appState.view.lastX = event.touches[0].clientX;
         appState.view.lastY = event.touches[0].clientY;
         
-        appState.view.offsetX += deltaX / appState.view.scale;
-        appState.view.offsetY += deltaY / appState.view.scale;
+        // Use the panView helper function
+        panView(deltaX, deltaY);
         
         renderFn();
     } 
@@ -283,11 +279,9 @@ function handleTouchMove(event, canvas, renderFn) {
             const midpointX = midpoint.x - rect.left;
             const midpointY = midpoint.y - rect.top;
             
-            // Calculate new scale with limits
+            // Calculate new scale and use setZoom helper function
             const newScale = appState.view.scale * zoomFactor;
-            if (newScale >= appState.view.minScale && newScale <= appState.view.maxScale) {
-                appState.view.scale = newScale;
-                
+            if (setZoom(newScale)) {
                 // Update the midpoint and distance for the next move event
                 appState.view.lastX = midpoint.x;
                 appState.view.lastY = midpoint.y;
