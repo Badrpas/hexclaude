@@ -1,7 +1,7 @@
 /**
  * Main entry point for the hexagonal grid application
  */
-import { appState, initializeCellStates } from './state.js';
+import { initializeCellStates } from './state.js';
 import { render } from './renderer.js';
 import { setupInteractions } from './interactions.js';
 
