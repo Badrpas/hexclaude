@@ -24,8 +24,11 @@ export function setupInteractions(canvas, renderFn) {
     
     // Touch handlers for mobile
     canvas.addEventListener('touchstart', (event) => handleTouchStart(event, canvas));
-    canvas.addEventListener('touchmove', (event) => handleTouchMove(event, renderFn));
-    canvas.addEventListener('touchend', (event) => handleTouchEnd(event, canvas));
+    canvas.addEventListener('touchmove', (event) => handleTouchMove(event, canvas, renderFn));
+    canvas.addEventListener('touchend', (event) => handleTouchEnd(event, canvas, renderFn));
+    
+    // Prevent context menu on long press (mobile)
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
 }
 
 /**
@@ -38,6 +41,11 @@ let hasMoved = false;
  */
 let startX = 0;
 let startY = 0;
+
+/**
+ * For pinch-to-zoom on mobile
+ */
+let initialPinchDistance = 0;
 
 /**
  * Threshold for considering a mouse movement a drag vs a click (in pixels)
@@ -178,18 +186,43 @@ function handleWheel(event, canvas, renderFn) {
 }
 
 /**
- * Handle touch start for panning on mobile
+ * Calculate distance between two touch points
+ * @param {Touch} touch1 - First touch point
+ * @param {Touch} touch2 - Second touch point
+ * @returns {number} Distance between touch points
+ */
+function getTouchDistance(touch1, touch2) {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Calculate midpoint between two touch points
+ * @param {Touch} touch1 - First touch point
+ * @param {Touch} touch2 - Second touch point
+ * @returns {Object} Midpoint coordinates {x, y}
+ */
+function getTouchMidpoint(touch1, touch2) {
+    return {
+        x: (touch1.clientX + touch2.clientX) / 2,
+        y: (touch1.clientY + touch2.clientY) / 2
+    };
+}
+
+/**
+ * Handle touch start for panning/zooming on mobile
  * @param {TouchEvent} event - Touch event
  * @param {HTMLCanvasElement} canvas - Canvas element
  */
 function handleTouchStart(event, canvas) {
+    event.preventDefault();
+    
+    // Reset movement tracking
+    hasMoved = false;
+    
     if (event.touches.length === 1) {
-        event.preventDefault();
-        
-        // Reset movement tracking
-        hasMoved = false;
-        
-        // Store the initial position
+        // Single touch - prepare for panning or tapping
         const rect = canvas.getBoundingClientRect();
         startX = event.touches[0].clientX - rect.left;
         startY = event.touches[0].clientY - rect.top;
@@ -197,47 +230,103 @@ function handleTouchStart(event, canvas) {
         appState.view.isDragging = true;
         appState.view.lastX = event.touches[0].clientX;
         appState.view.lastY = event.touches[0].clientY;
+    } 
+    else if (event.touches.length === 2) {
+        // Two touches - prepare for pinch zooming
+        initialPinchDistance = getTouchDistance(event.touches[0], event.touches[1]);
+        
+        // Store the midpoint position for centering the zoom
+        const midpoint = getTouchMidpoint(event.touches[0], event.touches[1]);
+        appState.view.lastX = midpoint.x;
+        appState.view.lastY = midpoint.y;
     }
 }
 
 /**
- * Handle touch move for panning on mobile
- * @param {TouchEvent} event - Touch event
- * @param {Function} renderFn - Render function
- */
-function handleTouchMove(event, renderFn) {
-    if (!appState.view.isDragging || event.touches.length !== 1) return;
-    
-    event.preventDefault();
-    
-    const deltaX = event.touches[0].clientX - appState.view.lastX;
-    const deltaY = event.touches[0].clientY - appState.view.lastY;
-    
-    // If the touch has moved significantly, mark as dragged
-    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
-        hasMoved = true;
-    }
-    
-    appState.view.lastX = event.touches[0].clientX;
-    appState.view.lastY = event.touches[0].clientY;
-    
-    appState.view.offsetX += deltaX / appState.view.scale;
-    appState.view.offsetY += deltaY / appState.view.scale;
-    
-    renderFn();
-}
-
-/**
- * Handle touch end to stop panning
+ * Handle touch move for panning/zooming on mobile
  * @param {TouchEvent} event - Touch event
  * @param {HTMLCanvasElement} canvas - Canvas element
+ * @param {Function} renderFn - Render function
  */
-function handleTouchEnd(event, canvas) {
+function handleTouchMove(event, canvas, renderFn) {
+    event.preventDefault();
+    
+    if (event.touches.length === 1 && appState.view.isDragging) {
+        // Single touch - handle panning
+        const deltaX = event.touches[0].clientX - appState.view.lastX;
+        const deltaY = event.touches[0].clientY - appState.view.lastY;
+        
+        // If the touch has moved significantly, mark as dragged
+        if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+            hasMoved = true;
+        }
+        
+        appState.view.lastX = event.touches[0].clientX;
+        appState.view.lastY = event.touches[0].clientY;
+        
+        appState.view.offsetX += deltaX / appState.view.scale;
+        appState.view.offsetY += deltaY / appState.view.scale;
+        
+        renderFn();
+    } 
+    else if (event.touches.length === 2) {
+        // Two touches - handle pinch zooming
+        const currentDistance = getTouchDistance(event.touches[0], event.touches[1]);
+        
+        if (initialPinchDistance > 0) {
+            // Calculate zoom factor
+            const zoomFactor = currentDistance / initialPinchDistance;
+            
+            // Apply zoom around the midpoint
+            const rect = canvas.getBoundingClientRect();
+            const midpoint = getTouchMidpoint(event.touches[0], event.touches[1]);
+            const midpointX = midpoint.x - rect.left;
+            const midpointY = midpoint.y - rect.top;
+            
+            // Calculate new scale with limits
+            const newScale = appState.view.scale * zoomFactor;
+            if (newScale >= appState.view.minScale && newScale <= appState.view.maxScale) {
+                appState.view.scale = newScale;
+                
+                // Update the midpoint and distance for the next move event
+                appState.view.lastX = midpoint.x;
+                appState.view.lastY = midpoint.y;
+                initialPinchDistance = currentDistance;
+                
+                renderFn();
+            }
+        }
+    }
+}
+
+/**
+ * Handle touch end for mobile interactions
+ * @param {TouchEvent} event - Touch event
+ * @param {HTMLCanvasElement} canvas - Canvas element
+ * @param {Function} renderFn - Render function
+ */
+function handleTouchEnd(event, canvas, renderFn) {
+    // If we have no touches and didn't move significantly, treat as a tap
+    if (event.touches.length === 0 && !hasMoved) {
+        // Use the last known position to simulate a click
+        const simulatedClick = {
+            clientX: appState.view.lastX,
+            clientY: appState.view.lastY
+        };
+        
+        // Small delay to make sure it's a tap
+        setTimeout(() => {
+            handleClick(simulatedClick, canvas, renderFn);
+        }, 10);
+    }
+    
+    // Reset state
     appState.view.isDragging = false;
+    initialPinchDistance = 0;
     canvas.style.cursor = 'default';
     
     // After a short delay, reset the moved flag
     setTimeout(() => {
         hasMoved = false;
-    }, 10);
+    }, 50);
 }
