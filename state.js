@@ -4,7 +4,20 @@
  */
 import { config, calculateHexX, calculateHexY } from './config.js';
 import { viewState, resetViewState, setZoom, panView } from './viewState.js';
-import { mapState, initializeCellStates, toggleCellState, cellExists } from './mapState.js';
+import { 
+    mapState, 
+    initializeCellStates, 
+    toggleCellState, 
+    cellExists,
+    getCell,
+    placeUnit,
+    addUnit,
+    removeUnit,
+    moveUnit,
+    selectUnit,
+    clearHighlightedCells,
+    endTurn
+} from './mapState.js';
 
 // Create and export the unified application state
 export const appState = {
@@ -15,6 +28,11 @@ export const appState = {
     get cells() { return mapState.cells; },
     get activeHexagon() { return mapState.activeHexagon; },
     set activeHexagon(value) { mapState.activeHexagon = value; },
+    
+    // Unit states
+    get units() { return mapState.units; },
+    get selectedUnit() { return mapState.selectedUnit; },
+    get currentTurn() { return mapState.currentTurn; },
     
     // Drawing parameters
     get hexSize() { return config.hexSize; },
@@ -33,6 +51,14 @@ export {
     initializeCellStates,
     toggleCellState,
     cellExists,
+    getCell,
+    placeUnit,
+    addUnit,
+    removeUnit,
+    moveUnit,
+    selectUnit,
+    clearHighlightedCells,
+    endTurn,
     resetViewState,
     setZoom,
     panView

@@ -1,7 +1,17 @@
 /**
  * Interactions module for handling user input
  */
-import { appState, toggleCellState, setZoom, panView } from './state.js';
+import { 
+    appState, 
+    toggleCellState, 
+    setZoom, 
+    panView,
+    selectUnit,
+    moveUnit,
+    getCell,
+    clearHighlightedCells,
+    endTurn
+} from './state.js';
 import { screenToWorld } from './renderer.js';
 import { isPointInHexagon } from './hexagon.js';
 
@@ -29,6 +39,56 @@ export function setupInteractions(canvas, renderFn) {
     
     // Prevent context menu on long press (mobile)
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+    
+    // Create an End Turn button
+    createEndTurnButton(canvas.parentElement, renderFn);
+}
+
+/**
+ * Create a button to end the current turn
+ * @param {HTMLElement} container - Container element for the button
+ * @param {Function} renderFn - Render function to call on updates
+ */
+function createEndTurnButton(container, renderFn) {
+    // Create button element
+    const button = document.createElement('button');
+    button.textContent = 'End Turn';
+    button.style.position = 'fixed';
+    button.style.bottom = '20px';
+    button.style.right = '20px';
+    button.style.padding = '10px 20px';
+    button.style.fontSize = '16px';
+    button.style.backgroundColor = '#4CAF50';
+    button.style.color = 'white';
+    button.style.border = 'none';
+    button.style.borderRadius = '4px';
+    button.style.cursor = 'pointer';
+    button.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+    
+    // Add hover effect
+    button.addEventListener('mouseover', () => {
+        button.style.backgroundColor = '#45a049';
+    });
+    
+    button.addEventListener('mouseout', () => {
+        button.style.backgroundColor = '#4CAF50';
+    });
+    
+    // Add click handler
+    button.addEventListener('click', () => {
+        endTurn();
+        renderFn();
+        
+        // Update button color based on current turn
+        if (appState.currentTurn === 'player') {
+            button.style.backgroundColor = '#4CAF50';
+        } else {
+            button.style.backgroundColor = '#F44336';
+        }
+    });
+    
+    // Add to container
+    container.appendChild(button);
 }
 
 /**
@@ -62,6 +122,9 @@ function handleClick(event, canvas, renderFn) {
     // Don't process click if we're still dragging or if there was significant movement
     if (appState.view.isDragging || hasMoved) return;
     
+    // Don't process clicks during AI's turn
+    if (appState.currentTurn === 'ai') return;
+    
     const rect = canvas.getBoundingClientRect();
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
@@ -76,7 +139,11 @@ function handleClick(event, canvas, renderFn) {
     // Convert screen coordinates to world coordinates
     const worldPos = screenToWorld(canvas, screenX, screenY);
     
-    // Check each cell to see if it was clicked
+    // Find the clicked cell
+    let clickedCell = null;
+    let clickedRow = -1;
+    let clickedCol = -1;
+    
     for (let rowIndex = 0; rowIndex < appState.cells.length; rowIndex++) {
         const row = appState.cells[rowIndex];
         
@@ -87,15 +154,78 @@ function handleClick(event, canvas, renderFn) {
             
             // Check if click is within hexagon using world coordinates
             if (isPointInHexagon(worldPos.x, worldPos.y, cell.x, cell.y, appState.hexSize)) {
-                // Toggle active state
-                toggleCellState(rowIndex, cellIndex);
-                console.log('Cell clicked:', cell);
-                
-                // Re-render
-                renderFn();
-                return;
+                clickedCell = cell;
+                clickedRow = rowIndex;
+                clickedCol = cellIndex;
+                break;
             }
         }
+        
+        if (clickedCell) break;
+    }
+    
+    // If no cell was clicked, return
+    if (!clickedCell) return;
+    
+    console.log('Cell clicked:', clickedCell);
+    
+    // Handle unit selection and movement
+    handleCellInteraction(clickedCell, clickedRow, clickedCol, renderFn);
+}
+
+/**
+ * Handle interaction with a cell (selection, movement, etc.)
+ * @param {Object} cell - The cell that was clicked
+ * @param {number} rowIndex - Row index of the cell
+ * @param {number} colIndex - Column index of the cell
+ * @param {Function} renderFn - Render function
+ */
+function handleCellInteraction(cell, rowIndex, colIndex, renderFn) {
+    // If a unit is already selected
+    if (appState.selectedUnit) {
+        const selectedUnit = appState.selectedUnit;
+        
+        // If clicked on the same unit, deselect it
+        if (cell.unit === selectedUnit) {
+            selectUnit(null);
+            renderFn();
+            return;
+        }
+        
+        // If clicked on another unit owned by player, select it instead
+        if (cell.unit && cell.unit.owner === 'player') {
+            selectUnit(cell.unit);
+            renderFn();
+            return;
+        }
+        
+        // If clicked on a highlighted (valid move) cell
+        if (cell.isHighlighted) {
+            // Move the unit
+            moveUnit(selectedUnit, rowIndex, colIndex);
+            renderFn();
+            return;
+        }
+        
+        // If clicked on an enemy unit and in attack range, attack it
+        // (Attack logic would go here)
+        
+        // Otherwise, deselect the current unit
+        selectUnit(null);
+        renderFn();
+    } 
+    // If no unit is selected
+    else {
+        // If clicked on a player's unit, select it
+        if (cell.unit && cell.unit.owner === appState.currentTurn) {
+            selectUnit(cell.unit);
+            renderFn();
+            return;
+        }
+        
+        // Otherwise just toggle the cell state (legacy behavior)
+        toggleCellState(rowIndex, colIndex);
+        renderFn();
     }
 }
 
