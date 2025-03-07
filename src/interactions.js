@@ -17,7 +17,7 @@ export function setupInteractions(canvas, renderFn) {
     // Mouse handlers for panning
     canvas.addEventListener('mousedown', (event) => handleMouseDown(event, canvas));
     window.addEventListener('mousemove', (event) => handleMouseMove(event, renderFn));
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mouseup', (event) => handleMouseUp(event, canvas));
     
     // Wheel handler for zooming
     canvas.addEventListener('wheel', (event) => handleWheel(event, canvas, renderFn));
@@ -25,8 +25,24 @@ export function setupInteractions(canvas, renderFn) {
     // Touch handlers for mobile
     canvas.addEventListener('touchstart', (event) => handleTouchStart(event, canvas));
     canvas.addEventListener('touchmove', (event) => handleTouchMove(event, renderFn));
-    canvas.addEventListener('touchend', handleTouchEnd);
+    canvas.addEventListener('touchend', (event) => handleTouchEnd(event, canvas));
 }
+
+/**
+ * Track if the user has moved the mouse/finger after mousedown/touchstart
+ */
+let hasMoved = false;
+
+/**
+ * Store the initial position on mouse/touch start
+ */
+let startX = 0;
+let startY = 0;
+
+/**
+ * Threshold for considering a mouse movement a drag vs a click (in pixels)
+ */
+const DRAG_THRESHOLD = 5;
 
 /**
  * Handle click/tap events
@@ -35,11 +51,19 @@ export function setupInteractions(canvas, renderFn) {
  * @param {Function} renderFn - Render function
  */
 function handleClick(event, canvas, renderFn) {
-    if (appState.view.isDragging) return;
+    // Don't process click if we're still dragging or if there was significant movement
+    if (appState.view.isDragging || hasMoved) return;
     
     const rect = canvas.getBoundingClientRect();
     const screenX = event.clientX - rect.left;
     const screenY = event.clientY - rect.top;
+    
+    // Check if we've moved beyond the threshold
+    const deltaX = Math.abs(screenX - startX);
+    const deltaY = Math.abs(screenY - startY);
+    if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
+        return;
+    }
     
     // Convert screen coordinates to world coordinates
     const worldPos = screenToWorld(canvas, screenX, screenY);
@@ -75,6 +99,14 @@ function handleClick(event, canvas, renderFn) {
 function handleMouseDown(event, canvas) {
     event.preventDefault();
     
+    // Reset movement tracking
+    hasMoved = false;
+    
+    // Store the initial position
+    const rect = canvas.getBoundingClientRect();
+    startX = event.clientX - rect.left;
+    startY = event.clientY - rect.top;
+    
     appState.view.isDragging = true;
     appState.view.lastX = event.clientX;
     appState.view.lastY = event.clientY;
@@ -93,6 +125,11 @@ function handleMouseMove(event, renderFn) {
     const deltaX = event.clientX - appState.view.lastX;
     const deltaY = event.clientY - appState.view.lastY;
     
+    // If the mouse has moved significantly, mark as dragged
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+        hasMoved = true;
+    }
+    
     appState.view.lastX = event.clientX;
     appState.view.lastY = event.clientY;
     
@@ -106,9 +143,14 @@ function handleMouseMove(event, renderFn) {
  * Handle mouse up to end panning
  * @param {MouseEvent} event - Mouse event
  */
-function handleMouseUp(event) {
+function handleMouseUp(event, canvas) {
     appState.view.isDragging = false;
-    document.body.style.cursor = 'default';
+    canvas.style.cursor = 'default';
+    
+    // After a short delay, reset the moved flag
+    setTimeout(() => {
+        hasMoved = false;
+    }, 50);
 }
 
 /**
@@ -144,6 +186,14 @@ function handleTouchStart(event, canvas) {
     if (event.touches.length === 1) {
         event.preventDefault();
         
+        // Reset movement tracking
+        hasMoved = false;
+        
+        // Store the initial position
+        const rect = canvas.getBoundingClientRect();
+        startX = event.touches[0].clientX - rect.left;
+        startY = event.touches[0].clientY - rect.top;
+        
         appState.view.isDragging = true;
         appState.view.lastX = event.touches[0].clientX;
         appState.view.lastY = event.touches[0].clientY;
@@ -163,6 +213,11 @@ function handleTouchMove(event, renderFn) {
     const deltaX = event.touches[0].clientX - appState.view.lastX;
     const deltaY = event.touches[0].clientY - appState.view.lastY;
     
+    // If the touch has moved significantly, mark as dragged
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+        hasMoved = true;
+    }
+    
     appState.view.lastX = event.touches[0].clientX;
     appState.view.lastY = event.touches[0].clientY;
     
@@ -175,7 +230,14 @@ function handleTouchMove(event, renderFn) {
 /**
  * Handle touch end to stop panning
  * @param {TouchEvent} event - Touch event
+ * @param {HTMLCanvasElement} canvas - Canvas element
  */
-function handleTouchEnd(event) {
+function handleTouchEnd(event, canvas) {
     appState.view.isDragging = false;
+    canvas.style.cursor = 'default';
+    
+    // After a short delay, reset the moved flag
+    setTimeout(() => {
+        hasMoved = false;
+    }, 10);
 }

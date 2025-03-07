@@ -22,6 +22,8 @@ export const appState = {
     
     // Drawing parameters
     hexSize: 50, // Base size of hexagons
+    hexSpacing: 2.0, // Spacing factor for horizontal distance between hexagons
+    hexRowSpacing: 2.0, // Spacing factor for vertical distance between rows
     activeHexagon: null,
     colors: {
         background: '#202325',
@@ -50,11 +52,11 @@ export const appState = {
  */
 export function calculateHexX(row, col) {
     const size = appState.hexSize;
-    const horizontalDistance = size * 1.5;
+    const horizontalDistance = size * appState.hexSpacing; // Apply spacing factor
     // Offset every other row
     return (row % 2 === 0)
         ? col * horizontalDistance + size * 1.5
-        : col * horizontalDistance + size * 2.25;
+        : col * horizontalDistance + size * 2.5;
 }
 
 /**
@@ -64,7 +66,7 @@ export function calculateHexX(row, col) {
  */
 export function calculateHexY(row) {
     const size = appState.hexSize;
-    const verticalDistance = size * 0.866 * 1.7; // Height of hexagon * spacing factor
+    const verticalDistance = size * 0.866 * appState.hexRowSpacing; // Apply row spacing factor
     return row * verticalDistance + size;
 }
 
