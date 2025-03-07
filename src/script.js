@@ -60,7 +60,7 @@ function initializeUnits() {
     placeUnit(playerSoldier1, 5, 0);
     placeUnit(playerSoldier2, 5, 1);
     placeUnit(playerArcher, 5, 2);
-    placeUnit(playerKnight, 5, 3);
+    placeUnit(playerKnight, 5, 5);
     placeUnit(playerMage, 5, 4);
     
     // Place AI units on the top side of the grid
