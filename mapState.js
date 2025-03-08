@@ -22,13 +22,15 @@ import { config, calculateHexX, calculateHexY } from './config.js';
 
 /**
  * Global state object for managing the game map
- * @type {Object}
+ * @typedef {Object} MapState
  * @property {Array<Array<Cell>>} cells - 2D array of cell objects representing the game grid
  * @property {Cell|null} activeHexagon - Currently active/selected hexagon cell
  * @property {Array<Unit>} units - Array of all units currently in the game
  * @property {Unit|null} selectedUnit - Currently selected unit, if any
  * @property {'player'|'ai'} currentTurn - Current turn owner ('player' or 'ai')
  */
+
+/** @type {MapState} */
 export const mapState = {
     cells: [],
     activeHexagon: null,
@@ -221,9 +223,8 @@ function highlightMovementRange(unit) {
     // Simple implementation that highlights all cells within movement range
     // A more complex implementation might consider movement cost and obstacles
     for (const cell of cells) {
+        if (cell.unit === unit) continue;
         cell.isHighlighted = true;
-        if (cell.isVisible && !cell.unit) {
-        }
     }
 }
 
@@ -400,7 +401,7 @@ export function moveUnit(unit, rowIndex, cellIndex) {
 /**
  * End the current turn and switch to the other player
  */
-export function endTurn() {
+export function endTurn(renderFn) {
     // Clear selected unit and highlights
     mapState.selectedUnit = null;
     clearHighlightedCells();
@@ -418,18 +419,42 @@ export function endTurn() {
     // If it's AI turn, trigger AI logic
     if (mapState.currentTurn === 'ai') {
         // We'll implement AI logic in a separate function/module
-        setTimeout(runAITurn, 500); // Add slight delay for better UX
+        runAITurn(renderFn);
     }
 }
 
+const delay = ms => new Promise(r => setTimeout(r, ms));
+
+const THINKING_TIME = 1000 * 1;
 /**
  * Run the AI turn
  * This is a placeholder - real AI logic would go here
  */
-function runAITurn() {
+async function runAITurn(renderFn) {
     // Basic AI that just moves units randomly and ends turn
     // Would be expanded with actual strategy in a full implementation
+    await delay(Math.random() * THINKING_TIME);
+
+    for (const unit of mapState.units) {
+        if (unit.owner !== 'ai') continue;
+        selectUnit(unit);
+        renderFn();
+        const pool = [];
+        for (const row of mapState.cells) {
+            for (const cell of row) {
+                if (cell.isHighlighted) pool.push(cell);
+            }
+        }
+        await delay(Math.random() * THINKING_TIME);
+        const selected = pool[Math.round(pool.length * Math.random())];
+        if (selected) {
+            moveUnit(unit, selected.rowIndex, selected.cellIndex);
+            renderFn();
+            await delay(Math.random() * THINKING_TIME);
+        }
+    }
     
     // For now, just end the turn
     endTurn();
+    renderFn();
 }

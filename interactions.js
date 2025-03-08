@@ -76,7 +76,7 @@ function createEndTurnButton(container, renderFn) {
     
     // Add click handler
     button.addEventListener('click', () => {
-        endTurn();
+        endTurn(renderFn);
         renderFn();
         
         // Update button color based on current turn
