@@ -182,8 +182,8 @@ function handleClick(event, canvas, renderFn) {
  */
 function handleCellInteraction(cell, rowIndex, colIndex, renderFn) {
     // If a unit is already selected
-    if (appState.selectedUnit) {
-        const selectedUnit = appState.selectedUnit;
+    const { selectedUnit } = appState;
+    if (selectedUnit) {
         
         // If clicked on the same unit, deselect it
         if (cell.unit === selectedUnit) {
