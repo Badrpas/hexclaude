@@ -263,9 +263,7 @@ export function getCellsInRange(row, col, range, includePredicate = () => true) 
         if (dist >= range) continue;
         
         // Get neighbors based on whether we're on an even or odd row
-        const neighbors = r % 2 === 0
-            ? [[r-1,c-1], [r-1,c], [r,c+1], [r+1,c], [r+1,c-1], [r,c-1]]  // even row
-            : [[r-1,c], [r-1,c+1], [r,c+1], [r+1,c+1], [r+1,c], [r,c-1]]; // odd row
+        const neighbors = getNeighborCoordinates(r, c);
             
         // Add valid neighbors to queue
         for (const [nr, nc] of neighbors) {
@@ -274,6 +272,77 @@ export function getCellsInRange(row, col, range, includePredicate = () => true) 
     }
     
     return result;
+}
+
+class DijkstraNodes {
+    nodes = {};
+    /**
+     * @param {Cell} cell 
+     * @returns {{
+     *   cell: Cell;
+     *   score: number;
+     *   visited: boolean;
+     *   prev: Cell;
+     * }|null}
+     */
+    getNode (cell) {
+        if (!cell) return null;
+        const key = `${cell.rowIndex};${cell.cellIndex}`;
+        if (!this.nodes[key]) this.nodes[key] = {
+            cell,
+            score: Number.MAX_SAFE_INTEGER,
+            visited: false,
+            prev: null,
+        };
+        return this.nodes[key];
+    };
+}
+/**
+ * @param {Cell} startCell
+ * @param {(c: Cell) => boolean} cellFilterPredicate 
+ * @returns {DijkstraNodes|null}
+ */
+export function runDijkstra(startCell, cellFilterPredicate = (cell) => cell?.isVisible) {
+    if (!startCell) return null;
+
+    const nodes = new DijkstraNodes;
+    /** @param {Cell} cell */
+    const getNode = (cell) => nodes.getNode(cell);
+
+    getNode(startCell).score = 0;
+    /** @type {Cell[]} */
+    const queue = [startCell];
+
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current) continue;
+        const node = getNode(current);
+        if (node.visited) continue;
+        node.visited = true;
+        
+        for (const [nr, nc] of getNeighborCoordinates(current.rowIndex, current.cellIndex)) {
+            const cell = getCell(nr, nc);
+            if (!cell || !cellFilterPredicate(cell)) continue;
+
+            const neighborNode = getNode(cell);
+            if (neighborNode.visited) continue;
+
+            queue.push(cell);
+            const score = node.score + 1;
+            if (score < neighborNode.score) {
+                neighborNode.score = score;
+                neighborNode.prev = cell;
+            }
+        }
+    }
+    
+    return nodes;
+}
+
+export function getNeighborCoordinates(r, c) {
+    return r % 2 === 0
+        ? [[r-1,c-1], [r-1,c], [r,c+1], [r+1,c], [r+1,c-1], [r,c-1]]  // even row
+        : [[r-1,c], [r-1,c+1], [r,c+1], [r+1,c+1], [r+1,c], [r,c-1]]; // odd row
 }
 
 /**
@@ -301,9 +370,11 @@ export function moveUnit(unit, rowIndex, cellIndex) {
     if (!targetCell || !targetCell.isVisible || targetCell.unit) return false;
     
     // Simple movement cost calculation (1 per cell)
-    const cost = 1;
-
     const oldCell = getCell(unit.position.row, unit.position.col);
+    const dijkstra = runDijkstra(oldCell);
+    const targetNode = dijkstra?.getNode(targetCell);
+    if (!targetNode) return false;
+    const cost = targetNode.score;
     
     // Update unit position using the unit's move method
     if (unit.move(rowIndex, cellIndex, cost)) {
