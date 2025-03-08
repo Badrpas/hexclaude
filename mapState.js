@@ -3,13 +3,38 @@
  */
 import { config, calculateHexX, calculateHexY } from './config.js';
 
-// Will store all cell states
+
+/**
+ * @typedef {import('./unit.js').Unit} Unit
+ */
+
+/**
+ * @typedef {Object} Cell
+ * @property {number} rowIndex - Row index in the grid
+ * @property {number} cellIndex - Column index in the grid
+ * @property {boolean} isVisible - Whether the cell is visible/active in the grid
+ * @property {boolean} isActive - Whether the cell is currently selected/active
+ * @property {boolean} isHighlighted - Whether the cell is highlighted (for movement/attack range)
+ * @property {Unit|null} unit - Unit occupying this cell, if any
+ * @property {number} x - X coordinate for rendering
+ * @property {number} y - Y coordinate for rendering
+ */
+
+/**
+ * Global state object for managing the game map
+ * @type {Object}
+ * @property {Array<Array<Cell>>} cells - 2D array of cell objects representing the game grid
+ * @property {Cell|null} activeHexagon - Currently active/selected hexagon cell
+ * @property {Array<Unit>} units - Array of all units currently in the game
+ * @property {Unit|null} selectedUnit - Currently selected unit, if any
+ * @property {'player'|'ai'} currentTurn - Current turn owner ('player' or 'ai')
+ */
 export const mapState = {
     cells: [],
     activeHexagon: null,
-    units: [], // Array to store all units in the game
-    selectedUnit: null, // Currently selected unit
-    currentTurn: 'player' // Who's turn it is (player or ai)
+    units: [],
+    selectedUnit: null,
+    currentTurn: 'player'
 };
 
 /**
@@ -84,7 +109,7 @@ export function cellExists(rowIndex, cellIndex) {
  * Get cell at the given coordinates
  * @param {number} rowIndex - Row index
  * @param {number} cellIndex - Cell index
- * @returns {Object|null} Cell object or null if not found
+ * @returns {Cell|null} Cell object or null if not found
  */
 export function getCell(rowIndex, cellIndex) {
     if (cellExists(rowIndex, cellIndex)) {
@@ -177,9 +202,7 @@ export function selectUnit(unit) {
     clearHighlightedCells();
     
     // If a unit is selected, highlight cells in its movement range
-    if (unit) {
-        highlightMovementRange(unit);
-    }
+    highlightMovementRange(unit);
 }
 
 /**
@@ -192,20 +215,65 @@ function highlightMovementRange(unit) {
     const { row, col } = unit.position;
     const movementRange = unit.movementRemaining;
     
+    const cells = getCellsInRange(row, col, movementRange, cell => {
+        return cell?.unit === unit || !cell?.unit
+    });
     // Simple implementation that highlights all cells within movement range
     // A more complex implementation might consider movement cost and obstacles
-    for (let r = 0; r < mapState.cells.length; r++) {
-        for (let c = 0; c < mapState.cells[r].length; c++) {
-            const cell = mapState.cells[r][c];
-            if (cell.isVisible && !cell.unit) {
-                // Calculate Manhattan distance (simplified for hexagonal grid)
-                const distance = Math.abs(r - row) + Math.abs(c - col);
-                if (distance <= movementRange) {
-                    cell.isHighlighted = true;
-                }
-            }
+    for (const cell of cells) {
+        cell.isHighlighted = true;
+        if (cell.isVisible && !cell.unit) {
         }
     }
+}
+
+/**
+ * Get all cells within a specified range of a given cell
+ * @param {number} row - Starting row index
+ * @param {number} col - Starting column index
+ * @param {number} range - Maximum distance from the starting cell
+ * @param {(c: Cell)=> boolean} includePredicate Is the cell walkable
+ * @returns {Array<Cell>} Array of cells within the specified range
+ */
+export function getCellsInRange(row, col, range, includePredicate = () => true) {
+    if (range < 0 || !cellExists(row, col)) {
+        return [];
+    }
+
+    /** @type {Cell[]} */
+    const result = [];
+    const visited = new Set();
+    const queue = [[row, col, 0]]; // [row, col, distance]
+
+    while (queue.length > 0) {
+        const [r, c, dist] = queue.shift();
+        const cell = getCell(r, c);
+        
+        // Skip if cell was already visited or is invalid
+        if (!cell || !cell.isVisible || !includePredicate?.(cell)) continue;
+        
+        const key = `${r},${c}`;
+        if (visited.has(key)) continue;
+        visited.add(key);
+        
+        // Add cell to result
+        result.push(cell);
+        
+        // Stop spreading from this cell if we're at max range
+        if (dist >= range) continue;
+        
+        // Get neighbors based on whether we're on an even or odd row
+        const neighbors = r % 2 === 0
+            ? [[r-1,c-1], [r-1,c], [r,c+1], [r+1,c], [r+1,c-1], [r,c-1]]  // even row
+            : [[r-1,c], [r-1,c+1], [r,c+1], [r+1,c+1], [r+1,c], [r,c-1]]; // odd row
+            
+        // Add valid neighbors to queue
+        for (const [nr, nc] of neighbors) {
+            queue.push([nr, nc, dist + 1]);
+        }
+    }
+    
+    return result;
 }
 
 /**
